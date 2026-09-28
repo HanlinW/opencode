@@ -147,7 +147,12 @@ export const appendOrStart = <K extends StreamKey>(
   route: string,
   tools: State<K>,
   key: K,
-  delta: { readonly id?: string; readonly name?: string; readonly text: string },
+  delta: {
+    readonly id?: string
+    readonly name?: string
+    readonly text: string
+    readonly providerMetadata?: ProviderMetadata
+  },
   missingToolMessage: string,
 ): AppendOutcome<K> | AIError => {
   const current = tools[key]
@@ -155,15 +160,23 @@ export const appendOrStart = <K extends StreamKey>(
   const name = current?.name ?? delta.name
   if (!id || !name) return eventError(route, missingToolMessage)
 
+  // The first metadata wins; some providers attach it only to one delta of a call.
+  const providerMetadata = current?.providerMetadata ?? delta.providerMetadata
   const tool = {
     id,
     name,
     namespace: current?.namespace,
     input: `${current?.input ?? ""}${delta.text}`,
     providerExecuted: current?.providerExecuted,
-    providerMetadata: current?.providerMetadata,
+    providerMetadata,
   }
-  if (current && delta.text.length === 0 && current.id === id && current.name === name)
+  if (
+    current &&
+    delta.text.length === 0 &&
+    current.id === id &&
+    current.name === name &&
+    current.providerMetadata === providerMetadata
+  )
     return { tools, tool: current, events: [] }
   return appendTool(tools, key, tool, delta.text)
 }
